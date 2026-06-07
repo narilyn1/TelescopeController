@@ -41,6 +41,7 @@ void setup() {
 
   s_raMotor.init();
   s_decMotor.init();
+  s_raMotor.setCancelBacklashOnGuide();
 
   delay(100);
 

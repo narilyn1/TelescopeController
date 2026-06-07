@@ -3,14 +3,14 @@
 #include "MotorController.h"
 #include <Arduino.h>
 
-const static unsigned long s_updateMicros[4] = {HALFSTEP_RATE_USEC / 32, HALFSTEP_RATE_USEC / 10, HALFSTEP_RATE_USEC, HALFSTEP_RATE_USEC * 2};
+const static unsigned long s_updateMicros[4] = {HALFSTEP_RATE_USEC / 2 / 16, HALFSTEP_RATE_USEC / 2 / 8, HALFSTEP_RATE_USEC / 2, HALFSTEP_RATE_USEC * 2};
 const double s_degreePerStep = 7.5 / 120.0 / 144.0 / 2.0; // HalfStep
 #define GOTO_TARGET_THRESHOLD_DEG (0.00278)  // 10" = 1 / 3600
-#define MOTOR_SLEEP_USEC (10000)
+#define MOTOR_SLEEP_USEC (25000) // この時間だけStepping Motorの状態がキープされるとスリープする
 
 MotorController::MotorController(unsigned short pin0, unsigned short pin1, unsigned short pin2, unsigned short pin3)
 : m_motorStep(0), m_lastMotorStep(-1), m_direction(0.0d), m_targetDirection(0.0d), m_motorSpeed(MOTOR_SPEED_FASTEST), m_motorState(MOTOR_STATE_STOP),
-  m_directionInversion(false), m_isInGoto(false), m_isInAdjustRotation(0), m_adjustLastUpdate(0), m_adjustUntilMsec(0), m_backlashStep(0) {
+  m_directionInversion(false), m_isInGoto(false), m_isInAdjustRotation(0), m_adjustLastUpdate(0), m_adjustUntilMsec(0), m_backlashStep(0), m_cancelGuideBacklash(false) {
   m_pin[0] = pin0;
   m_pin[1] = pin1;
   m_pin[2] = pin2;
@@ -55,8 +55,14 @@ void MotorController::update() {
   }
 
   // process adjust rotation backlush
-  if(0 != m_isInAdjustRotation) {
-    unsigned long nextUpdateTime = m_adjustLastUpdate + s_updateMicros[MOTOR_SPEED_SLOWEST];
+  if(0 != m_isInAdjustRotation) {    
+    unsigned long nextUpdateTime;
+    if(m_cancelGuideBacklash) { // 赤経軸ではガイドのBacklash制御はしない
+      nextUpdateTime = m_adjustLastUpdate + s_updateMicros[MOTOR_SPEED_SLOWEST];
+    } else {
+      nextUpdateTime = m_adjustLastUpdate + (isInBacklash() == false ? s_updateMicros[MOTOR_SPEED_SLOWEST] : s_updateMicros[MOTOR_SPEED_SLOW]); // ガイドのときはSLOWで合わせ込みに行く
+    }
+          
     if(currentTime > nextUpdateTime) {
       if(m_isInAdjustRotation > 0) {
         cwStep();

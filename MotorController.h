@@ -1,7 +1,7 @@
 
 // 86164.098903691[sec] / (48[motor step] * 120[gear] * 144[worm gear]) / 2[half step] + 0.0519411285[sec]
 #define HALFSTEP_RATE_USEC (51941)
-#define BACKLASH_STEP (500)
+#define BACKLASH_STEP (420)
 
 typedef enum {
   MOTOR_SPEED_FASTEST = 0,
@@ -117,6 +117,10 @@ class MotorController
     bool isInBacklash() {
       return m_backlashStep > 0 && m_backlashStep < BACKLASH_STEP;
     }
+
+    void setCancelBacklashOnGuide() {
+      m_cancelGuideBacklash = true;
+    }
     
   private:
     // Stepping Motorの状態を内部状態にシンクする
@@ -155,4 +159,5 @@ class MotorController
     unsigned long m_adjustLastUpdate; // usec
     unsigned long m_adjustUntilMsec;
     int m_backlashStep;
+    bool m_cancelGuideBacklash;
 };
